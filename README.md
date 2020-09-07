@@ -2,7 +2,7 @@
 
 Simple 2 server web authn service
 
-####Installation
+#### Installation
 
 1. Clone this repo to your workstation.
 
@@ -12,7 +12,7 @@ that the flask servers started successfully.
 
 3. See *Usage* below for further info.
 
-####Usage
+#### Usage
 
 **NOTE:** In current configuration web servers must run on the same machine.
 One server is configured to port 8080, the other to 8085.
@@ -20,7 +20,7 @@ You can change the port in the URL to query the other server.
 
 This simple web server defines 4 endpoints:
 
-#####*/register*
+##### */register*
 
 Only allowed method is POST.
 
@@ -28,7 +28,7 @@ Needs to have "username" header and "password" header
 
 Example Query: curl -XPOST -H "username: hello" -H "password: world" http://127.0.0.1:8080/register 
 
-#####*/changePassword*
+##### */changePassword*
 
 Only allowed method is POST.
 
@@ -37,7 +37,7 @@ Needs to have "username" header and "password" header
 Example Query: curl -XPOST -H "username: hello" -H "password: world" http://127.0.0.1:8080/changePassword 
 
 
-#####*/login*
+##### */login*
 
 Only allowed method is GET.
 
@@ -45,7 +45,7 @@ Needs to have "username" "password" URL arguments
 
 Example Query: curl "http://127.0.0.1:8080/login?username=hello&password=world" 
 
-#####*/metrics*
+##### */metrics*
 
 Only allowed method is GET.
 
