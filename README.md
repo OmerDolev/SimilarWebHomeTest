@@ -14,7 +14,9 @@ that the flask servers started successfully.
 
 ####Usage
 
-**NOTE:** In current configuration web servers must run on the same machine
+**NOTE:** In current configuration web servers must run on the same machine.
+One server is configured to port 8080, the other to 8085.
+You can change the port in the URL to query the other server.
 
 This simple web server defines 4 endpoints:
 
