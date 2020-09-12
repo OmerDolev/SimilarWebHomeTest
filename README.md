@@ -34,7 +34,7 @@ Only allowed method is GET.
 LB Example Query: curl http://127.0.0.1:80/metrics
 
 
-***The simple web servers define 3 endpoints:***
+###The simple web servers define 3 endpoints:
 
 #### */register*
 
