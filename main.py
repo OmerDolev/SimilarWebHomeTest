@@ -1,73 +1,181 @@
-from flask import Flask, request, redirect, Response
+from flask import Flask, request, Response
+import multiprocessing
 import json
 import requests
 import time
-import sys
+import socket
+
 app = Flask(__name__)
 
-targets = {}
+targets = []
 targets_file = "targets.json"
 with open(targets_file, "r") as f:
     targets = json.load(f)["targets"]
-
+healthy_targets = []
+post_request_max_time_seconds = 11
+backoff_interval = 5
 rr_counter = 0
-# exit codes
-ec_bad_username_or_password = 1
-ec_illigal_username_or_password = 4
-ec_user_already_exists = 2
-ec_user_does_not_exist = 3
-ec_sync_servers_failed = 5
-ec_password_already_updated = 6
-ec_success = 0
+health_check_interval_seconds = 2
+
+# metrics
+metrics = {
+    "metrics_2XX_reponses_count": 0,
+    "metrics_4XX_reponses_count": 0,
+    "metrics_5XX_reponses_count": 0
+}
 
 
-def get_error_msg(exit_code):
-    if exit_code == ec_success:
-        output = "Success!\n"
-    elif exit_code == ec_bad_username_or_password:
-        output = "Bad username or password\n"
-    else:
-        output = "General error\n"
-    return output
+def add_2XX_response():
+    global metrics
+    metrics["metrics_2XX_reponses_count"] += 1
+
+
+def add_4XX_response():
+    global metrics
+    metrics["metrics_4XX_reponses_count"] += 1
+
+
+def add_5XX_response():
+    global metrics
+    metrics["metrics_5XX_reponses_count"] += 1
+
+
+def debug(msg):
+    print("DEBUG!!!!!!!!!!!!\n{0}\n\n".format(msg))
+
+
+def check_targets_health():
+    global targets
+    global healthy_targets
+    while True:
+        for target in targets:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex((target.split(":")[0], int(target.split(":")[1])))
+                if result == 0 and target not in healthy_targets:
+                    healthy_targets.append(target)
+                elif result != 0 and target in healthy_targets:
+                    healthy_targets.remove(target)
+                sock.close()
+            except Exception as e:
+                print(e)
+        time.sleep(health_check_interval_seconds)
+
+
+health_process = multiprocessing.Process(target=check_targets_health)
+health_process.start()
 
 
 # exmaple query "http://127.0.0.1:8080/login?username=hello&password=world"
 @app.route('/<path>', methods=['GET', 'POST'])
 def proxy(path):
+    global targets
     global rr_counter
     target = targets[rr_counter]
-
-    # update rr_counter
-    rr_counter = (rr_counter + 1) % len(targets)
 
     if request.method == 'GET':
         if not request.args:
             return "No arguments found!", 400
 
+        # update rr_counter
+        rr_counter = (rr_counter + 1) % len(targets)
+
+        # format get request args
         request_args = ""
         for idx, arg in enumerate(request.args):
             request_args += "{0}={1}&".format(arg, request.args[arg])
         request_args = request_args[:-1]
 
+        # execute request
         resp = requests.get("http://{0}/{1}?{2}".format(target, path, request_args))
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
         response = Response(resp.content, resp.status_code, headers)
+
+        if 200 <= resp.status_code < 300:
+            add_2XX_response()
+        elif 400 <= resp.status_code < 500:
+            add_4XX_response()
+        elif 500 <= resp.status_code:
+            add_5XX_response()
+
     if request.method == 'POST':
-        resp = requests.post("{0}{1}".format(target, path), json=request.get_json())
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
-        response = Response(resp.content, resp.status_code, headers)
+
+        response = ""
+        responses = {}
+        sessions = {}
+        manager = multiprocessing.Manager()
+        for t in targets:
+            return_value = manager.dict()
+            p = multiprocessing.Process(target=send_post_to_target,
+                                        args=(t, path, dict([keyval for keyval in request.headers]), return_value))
+            sessions[t] = p
+            responses[t] = return_value
+            p.start()
+            p.join()
+
+        request_not_completed = True
+        while request_not_completed:
+            for current_target in sessions:
+                if not sessions[current_target].is_alive():
+                    debug(current_target)
+                    https_response = responses[current_target][current_target]
+                    response = "Upstream server returned: {}\n".format(
+                        https_response.status), https_response.status_code
+                    request_not_completed = False
+                    break
+
+        if 200 <= https_response.status_code < 300:
+            add_2XX_response()
+        elif 400 <= https_response.status_code < 500:
+            add_4XX_response()
+        elif 500 <= https_response.status_code:
+            add_5XX_response()
     return response
 
 
+def send_post_to_target(target, path, headers, shared_value):
+    global backoff_interval
+    global post_request_max_time_seconds
+    current_backoff_interval = backoff_interval
+    url = "http://{0}/{1}".format(target, path)
+
+    try:
+        # first try
+        resp = requests.post(url, headers=headers)
+
+        # retry backoff
+        while resp.status_code != 201 and current_backoff_interval < post_request_max_time_seconds:
+            time.sleep(current_backoff_interval)
+            resp = requests.post(url, headers=headers)
+            current_backoff_interval *= 2
+    except Exception as e:
+        print(e)
+        shared_value[target] = Response(resp.content, 500)
+
+    # after timeout passed or request is completed
+    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+    headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+    shared_value[target] = Response(resp.content, resp.status_code, headers)
+
+
+def extract_return_code(resp):
+    return resp.split("[")[1].split("]")[0]
+
+
 @app.route('/metrics', methods=['GET'])
-def metrics():
+def print_metrics():
+    global metrics
+    output = "## Simple Load Balancer Metrics ##\n\n"
+    for metric in metrics:
+        output += format_metric_line(metric, metrics[metric])
+
+    add_2XX_response()
     return output, 200
 
 
 def format_metric_line(metric_name, value):
-    return "{0} {1}\n".format(metric_name, value)
+    return "{0} {1}\n\n".format(metric_name, value)
 
 
 if __name__ == '__main__':

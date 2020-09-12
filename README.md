@@ -1,40 +1,48 @@
 # SimilarWeb Home Test
 
-Simple 2 server web authn service
+Simple Python Load Balancer
 
 ## Installation
 
-1. Clone this repo to your workstation.
+1. Ensure you have python 3 installed
 
-2. There are 2 scripts, one for each server.
-Run both scripts from different terminals and see
-that the flask servers started successfully.
+2. Clone this repo to your workstation.
 
-3. See *Usage* below for further info.
+3. Run pip install -r requirements.txt
+
+4. Configure targets.json file with <hostname>:<port> of targets
+
+5. See *Usage* below for further info.
 
 ## Usage
 
-**NOTE:** In current configuration web servers must run on the same machine.
-One server is configured to port 8080, the other to 8085.
-You can change the port in the URL to query the other server.
+**NOTE:**
+Load Balancer implements */metrics* endpoint.
+Otherwise queries are sent to the upstream targets listed in targets.json
+according to the task specifications.
 
-This simple web server defines 4 endpoints:
+
+There are 2 shell scripts (server_run_8080, server_run_8085).
+Those are simple http servers one on port 8080, the other on 8085.
+(they are configured to match the targets in the json file)
+
+The simple web servers define 3 endpoints:
 
 ### */register*
 
 Only allowed method is POST.
 
-Needs to have "username" header and "password" header
-
-Example Query: curl -XPOST -H "username: hello" -H "password: world" http://127.0.0.1:8080/register 
+LB Example Query: curl -XPOST -H "user: hello" http://127.0.0.1:80/register 
 
 ### */changePassword*
 
 Only allowed method is POST.
 
-Needs to have "username" header and "password" header
+For success "user" header must have value: "hello"
 
-Example Query: curl -XPOST -H "username: hello" -H "password: world" http://127.0.0.1:8080/changePassword 
+To get Bad request change value from "hello" to something else.
+
+LB Example Query: curl -XPOST -H "user: hello" http://127.0.0.1:80/changePassword 
 
 
 ### */login*
@@ -43,11 +51,5 @@ Only allowed method is GET.
 
 Needs to have "username" "password" URL arguments
 
-Example Query: curl "http://127.0.0.1:8080/login?username=hello&password=world" 
-
-### */metrics*
-
-Only allowed method is GET.
-
-Example Query: curl "http://127.0.0.1:8080/metrics" 
+LB Example Query: curl http://127.0.0.1:80/login?username=hello 
 

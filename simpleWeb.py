@@ -6,16 +6,16 @@ app = Flask(__name__)
 # example query "curl -XPOST -H "username: hello" -H "password: wholeworld" http://127.0.0.1:8080/register"
 @app.route('/register', methods=['POST'])
 def register():
-    return "User registered successfully!\n", 200
+    return "User registered successfully!\n", 201
 
 
 # exmaple successful query "curl -XPOST -H "username: hello" http://127.0.0.1:8080/changePassword"
 # exmaple wrong query "curl -XPOST -H "username: world" http://127.0.0.1:8080/changePassword"
 @app.route('/changePassword', methods=['POST'])
 def changePassword():
-    username = request.headers['username']
+    username = request.headers['user']
     if username == "hello":
-        return "Password was updated Succesfully!\n", 200
+        return "Password was updated Succesfully!\n", 201
     else:
         return "Password update failed!\n", 400
 
@@ -25,7 +25,7 @@ def changePassword():
 
 @app.route('/login', methods=['GET'])
 def login():
-    username = request.args.get("username")
+    username = request.args.get('user')
     if username == "hello":
         return "Logged in Succesfully!\n", 200
     else:
