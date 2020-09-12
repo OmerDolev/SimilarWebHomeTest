@@ -8,11 +8,13 @@ Simple Python Load Balancer
 
 2. Clone this repo to your workstation.
 
-3. Run pip install -r requirements.txt
+3. Run pip3 install -r requirements.txt
 
 4. Configure targets.json file with 'hostname:port' for targets
 
-5. See *Usage* below for further info.
+5. run the LB: python3 main.py
+
+6. See additional info in *Usage* below for further info.
 
 ## Usage
 

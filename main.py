@@ -15,7 +15,7 @@ healthy_targets = []
 post_request_max_time_seconds = 11
 backoff_interval = 5
 rr_counter = 0
-health_check_interval_seconds = 2
+health_check_interval_seconds = 1
 
 # metrics
 metrics = {
@@ -59,6 +59,7 @@ def check_targets_health():
                 sock.close()
             except Exception as e:
                 print(e)
+        debug(healthy_targets)
         time.sleep(health_check_interval_seconds)
 
 
@@ -71,15 +72,22 @@ health_process.start()
 def proxy(path):
     global targets
     global rr_counter
-    target = targets[rr_counter]
+    global healthy_targets
 
     if request.method == 'GET':
+
+        debug(healthy_targets)
+
         if not request.args:
+            add_4XX_response()
             return "No arguments found!", 400
+        if len(healthy_targets) < 1:
+            add_5XX_response()
+            return "No healthy targets found!", 500
 
         # update rr_counter
-        rr_counter = (rr_counter + 1) % len(targets)
-
+        rr_counter = (rr_counter + 1) % len(healthy_targets)
+        target = healthy_targets[rr_counter]
         # format get request args
         request_args = ""
         for idx, arg in enumerate(request.args):
@@ -102,35 +110,32 @@ def proxy(path):
     if request.method == 'POST':
 
         response = ""
-        responses = {}
         sessions = {}
         manager = multiprocessing.Manager()
-        for t in targets:
-            return_value = manager.dict()
+        return_value = manager.list()
+        for t in healthy_targets:
             p = multiprocessing.Process(target=send_post_to_target,
                                         args=(t, path, dict([keyval for keyval in request.headers]), return_value))
             sessions[t] = p
-            responses[t] = return_value
             p.start()
-            p.join()
 
-        request_not_completed = True
-        while request_not_completed:
-            for current_target in sessions:
-                if not sessions[current_target].is_alive():
-                    debug(current_target)
-                    https_response = responses[current_target][current_target]
-                    response = "Upstream server returned: {}\n".format(
-                        https_response.status), https_response.status_code
-                    request_not_completed = False
-                    break
+        # for s in sessions:
+        #     sessions[s].join()
+        while not return_value:
+            time.sleep(0.1)
+        for r in return_value:
+            if 200 <= r.status_code < 300:
+                response = "{}\n".format(r.status), r.status_code
+            else:
+                response = "500 Couldn't complete request\n", 500
 
-        if 200 <= https_response.status_code < 300:
-            add_2XX_response()
-        elif 400 <= https_response.status_code < 500:
-            add_4XX_response()
-        elif 500 <= https_response.status_code:
-            add_5XX_response()
+            if 200 <= r.status_code < 300:
+                add_2XX_response()
+            elif 400 <= r.status_code < 500:
+                add_4XX_response()
+            elif 500 <= r.status_code:
+                add_5XX_response()
+
     return response
 
 
@@ -151,12 +156,19 @@ def send_post_to_target(target, path, headers, shared_value):
             current_backoff_interval *= 2
     except Exception as e:
         print(e)
-        shared_value[target] = Response(resp.content, 500)
+        if shared_value:
+            shared_value.append(Response("Server Error", 500))
 
     # after timeout passed or request is completed
     excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
     headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
-    shared_value[target] = Response(resp.content, resp.status_code, headers)
+    response = Response(resp.content, resp.status_code, headers)
+
+    try:
+        shared_value.append(response)
+    except Exception as e:
+        print("Couldn't add request to shared data, {}".format(e))
+    return response
 
 
 def extract_return_code(resp):
