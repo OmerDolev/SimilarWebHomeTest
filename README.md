@@ -4,7 +4,7 @@ Simple Python Load Balancer
 
 ## Installation
 
-1. Ensure you have python 3 installed
+1. Ensure you have python 3 installed (so python3 and pip3 are executable) 
 
 2. Clone this repo to your workstation.
 
