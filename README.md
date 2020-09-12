@@ -49,7 +49,9 @@ LB Example Query: curl -XPOST -H "user: hello" http://127.0.0.1:80/changePasswor
 
 Only allowed method is GET.
 
-Needs to have "username" "password" URL arguments
+For success "user" URL arg must have value: "hello"
 
-LB Example Query: curl http://127.0.0.1:80/login?username=hello 
+To get Bad request change value from "hello" to something else.
+
+LB Example Query: curl http://127.0.0.1:80/login?user=hello 
 
