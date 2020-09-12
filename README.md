@@ -10,7 +10,7 @@ Simple Python Load Balancer
 
 3. Run pip install -r requirements.txt
 
-4. Configure targets.json file with <hostname>:<port> of targets
+4. Configure targets.json file with 'hostname:port' for targets
 
 5. See *Usage* below for further info.
 
@@ -26,15 +26,23 @@ There are 2 shell scripts (server_run_8080, server_run_8085).
 Those are simple http servers one on port 8080, the other on 8085.
 (they are configured to match the targets in the json file)
 
-The simple web servers define 3 endpoints:
+For LB metrics:
+#### */metrics*
 
-### */register*
+Only allowed method is GET.
+
+LB Example Query: curl http://127.0.0.1:80/metrics
+
+
+***The simple web servers define 3 endpoints:***
+
+#### */register*
 
 Only allowed method is POST.
 
 LB Example Query: curl -XPOST -H "user: hello" http://127.0.0.1:80/register 
 
-### */changePassword*
+#### */changePassword*
 
 Only allowed method is POST.
 
@@ -45,7 +53,7 @@ To get Bad request change value from "hello" to something else.
 LB Example Query: curl -XPOST -H "user: hello" http://127.0.0.1:80/changePassword 
 
 
-### */login*
+#### */login*
 
 Only allowed method is GET.
 
