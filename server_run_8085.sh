@@ -4,4 +4,4 @@
 source ./env/bin/activate
 
 # running flask app
-python ./main.py 8085
+python ./simpleWeb.py 8085
