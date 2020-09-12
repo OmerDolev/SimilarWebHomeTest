@@ -81,10 +81,6 @@ def proxy(path):
 
     if request.method == 'GET':
 
-        # if not request.args:
-        #     add_4XX_response()
-        #     return "No arguments found!", 400
-
         # update rr_counter
         rr_counter = (rr_counter + 1) % len(healthy_targets)
         target = healthy_targets[rr_counter]
