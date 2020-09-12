@@ -77,7 +77,7 @@ def proxy(path):
 
     if len(healthy_targets) < 1:
         add_5XX_response()
-        return "No healthy targets found!", 500
+        return "No healthy targets found!\n", 500
 
     if request.method == 'GET':
 
