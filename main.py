@@ -7,15 +7,17 @@ import socket
 
 app = Flask(__name__)
 
+ipc_manager = multiprocessing.Manager()
 targets = []
 targets_file = "targets.json"
 with open(targets_file, "r") as f:
     targets = json.load(f)["targets"]
-healthy_targets = []
-post_request_max_time_seconds = 11
-backoff_interval = 5
+healthy_targets = ipc_manager.list()
+
 rr_counter = 0
-health_check_interval_seconds = 1
+post_request_max_time_seconds = 11
+backoff_interval_seconds = 5
+health_check_interval_seconds = 0.1
 
 # metrics
 metrics = {
@@ -59,7 +61,6 @@ def check_targets_health():
                 sock.close()
             except Exception as e:
                 print(e)
-        debug(healthy_targets)
         time.sleep(health_check_interval_seconds)
 
 
@@ -70,20 +71,19 @@ health_process.start()
 # exmaple query "http://127.0.0.1:8080/login?username=hello&password=world"
 @app.route('/<path>', methods=['GET', 'POST'])
 def proxy(path):
-    global targets
+    global ipc_manager
     global rr_counter
     global healthy_targets
 
+    if len(healthy_targets) < 1:
+        add_5XX_response()
+        return "No healthy targets found!", 500
+
     if request.method == 'GET':
 
-        debug(healthy_targets)
-
-        if not request.args:
-            add_4XX_response()
-            return "No arguments found!", 400
-        if len(targets) < 1:
-            add_5XX_response()
-            return "No healthy targets found!", 500
+        # if not request.args:
+        #     add_4XX_response()
+        #     return "No arguments found!", 400
 
         # update rr_counter
         rr_counter = (rr_counter + 1) % len(healthy_targets)
@@ -111,16 +111,14 @@ def proxy(path):
 
         response = ""
         sessions = {}
-        manager = multiprocessing.Manager()
-        return_value = manager.list()
+
+        return_value = ipc_manager.list()
         for t in healthy_targets:
             p = multiprocessing.Process(target=send_post_to_target,
                                         args=(t, path, dict([keyval for keyval in request.headers]), return_value))
             sessions[t] = p
             p.start()
 
-        # for s in sessions:
-        #     sessions[s].join()
         while not return_value:
             time.sleep(0.1)
         for r in return_value:
@@ -140,21 +138,11 @@ def proxy(path):
 
 
 def send_post_to_target(target, path, headers, shared_value):
-    global backoff_interval
+    global backoff_interval_seconds
     global post_request_max_time_seconds
-    global healthy_targets
 
-    current_backoff_interval = backoff_interval
+    current_backoff_interval = backoff_interval_seconds
     url = "http://{0}/{1}".format(target, path)
-
-    # debug("in send post fund {}".format(healthy_targets))
-    # if target not in healthy_targets:
-    #     response = Response("Unhealthy target", 500)
-    #     try:
-    #         shared_value.append(response)
-    #     except Exception as e:
-    #         print("Couldn't add request to shared data, {}".format(e))
-    #     return response
 
     try:
         # first try

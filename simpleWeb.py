@@ -13,6 +13,7 @@ def register():
 # exmaple wrong query "curl -XPOST -H "username: world" http://127.0.0.1:8080/changePassword"
 @app.route('/changePassword', methods=['POST'])
 def changePassword():
+    return "Password update failed!\n", 500
     username = request.headers['user']
     if username == "hello":
         return "Password was updated Succesfully!\n", 201
