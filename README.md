@@ -16,6 +16,10 @@ Simple Python Load Balancer
 
 6. See additional info in *Usage* below for further info.
 
+*NOTE:* backoff interval for failed requests is 5, 10 and 20 seconds.
+Afterwards, an error will be returned from the LB 
+(parameter can be changed in the code ).
+
 ## Usage
 
 **NOTE:**

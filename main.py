@@ -15,7 +15,7 @@ with open(targets_file, "r") as f:
 healthy_targets = ipc_manager.list()
 
 rr_counter = 0
-post_request_max_time_seconds = 11
+post_request_max_interval_seconds = 21
 backoff_interval_seconds = 5
 health_check_interval_seconds = 0.1
 
@@ -139,7 +139,7 @@ def proxy(path):
 
 def send_post_to_target(target, path, headers, shared_value):
     global backoff_interval_seconds
-    global post_request_max_time_seconds
+    global post_request_max_interval_seconds
 
     current_backoff_interval = backoff_interval_seconds
     url = "http://{0}/{1}".format(target, path)
@@ -149,7 +149,7 @@ def send_post_to_target(target, path, headers, shared_value):
         resp = requests.post(url, headers=headers)
 
         # retry backoff
-        while resp.status_code != 201 and current_backoff_interval < post_request_max_time_seconds:
+        while resp.status_code != 201 and current_backoff_interval < post_request_max_interval_seconds:
             time.sleep(current_backoff_interval)
             resp = requests.post(url, headers=headers)
             current_backoff_interval *= 2
