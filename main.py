@@ -81,7 +81,7 @@ def proxy(path):
         if not request.args:
             add_4XX_response()
             return "No arguments found!", 400
-        if len(healthy_targets) < 1:
+        if len(targets) < 1:
             add_5XX_response()
             return "No healthy targets found!", 500
 
@@ -142,8 +142,19 @@ def proxy(path):
 def send_post_to_target(target, path, headers, shared_value):
     global backoff_interval
     global post_request_max_time_seconds
+    global healthy_targets
+
     current_backoff_interval = backoff_interval
     url = "http://{0}/{1}".format(target, path)
+
+    # debug("in send post fund {}".format(healthy_targets))
+    # if target not in healthy_targets:
+    #     response = Response("Unhealthy target", 500)
+    #     try:
+    #         shared_value.append(response)
+    #     except Exception as e:
+    #         print("Couldn't add request to shared data, {}".format(e))
+    #     return response
 
     try:
         # first try
